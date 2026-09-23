@@ -1,0 +1,111 @@
+name: amazezoneapi_frontend
+
+x-vite-base: &vite_base
+  restart: unless-stopped
+  networks:
+    - public
+  logging:
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  frontend:
+    <<: *vite_base
+    container_name: amazezoneapi-vite
+    image: amazezoneapi_vite_frontend:local
+    build:
+      context: ..
+      dockerfile: BuildTools/Dockerfile
+      args:
+        - NODE_VERSION=${NODE_VERSION:-24-alpine}
+    ports:
+    - "8080:80"
+
+  # Frontend_dev service: runs the app using the vite dev server.
+  #
+  # It sits behind the "development" profile, so a plain `docker compose up` (and the
+  # BuildTools scripts) never start it. Start it explicitly, e.g.:
+  #   docker compose -f BuildTools/docker-compose.yml --profile development up -d frontend_dev
+  # (targeting `frontend_dev` explicitly means the default `frontend` service is
+  # NOT started at the same time).
+  #
+  # It reuses the vite image and bind-mounts the app, so
+  # edits are picked up without a rebuild; only package changes need a rebuild.
+  #
+  # Porting: the PUBLISHED (host) port is ${VITE_PORT:-8888} and the container
+  # port is ${VITE_PORT:-3000}, where VITE_PORT comes from the HOST environment
+  # (or a .env file next to this compose file, e.g. BuildTools/.env) - NOT from
+  # app/.env.dev: Compose variable interpolation does not read service env_file
+  # entries, so a VITE_PORT set only in app/.env.dev would desync the two sides
+  # of the mapping (do not set it there). Default is 8888:3000, matching
+  # the defaults in dev.Dockerfile and app/vite.config.ts.
+  #
+  # Env file: app/.env.dev is REQUIRED (env_file `required: true` below).
+  # A fresh clone has none (it is gitignored) - copy app/example.env.dev to
+  # app/.env.dev first, or every `up` fails with "env file ... not found".
+  frontend_dev:
+    <<: *vite_base
+    container_name: amazezoneapi-vite-dev
+    image: amazezoneapi_vite_frontend:local-dev
+    build:
+      context: ..
+      dockerfile: BuildTools/dev.Dockerfile
+      args:
+        - NODE_VERSION=${NODE_VERSION:-24-alpine}
+    # NOTE: VITE_PORT is deliberately NOT listed here. `environment` entries
+    # take precedence over env_file, so listing it (even with a default) would
+    # shadow any VITE_PORT set in app/.env.dev.
+    environment:
+      VITE_FORCE_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "500" # Decrease CPU usage by checking every 500ms
+    # Required env file: supplies VITE_RUBY_API_URL (the AmazeZoneAPI URL) and any
+    # other VITE_* values. Copy app/example.env.dev to app/.env.dev to create it.
+    env_file:
+      - path: ../app/.env.dev
+        required: true
+    ports:
+      - "${VITE_PORT:-8888}:${VITE_PORT:-3000}"
+    volumes:
+      - ../app:/app
+      - node_modules:/app/node_modules
+    profiles:
+      - development
+
+  # Test service: runs the vitest suite in a one-shot container and exits.
+  #
+  # It sits behind the "test" profile, so a plain `docker compose up` (and the
+  # BuildTools scripts) never start it. Start it explicitly, e.g.:
+  #   docker compose -f BuildTools/docker-compose.yml --profile test run --rm test
+  #
+  # It reuses the dev image and bind-mounts the app, so test
+  # edits are picked up without a rebuild; only package changes need a rebuild.
+  #
+  # Note: "restart: no" overrides the anchor on purpose -- a one-shot test run
+  # must not be restarted by Docker after it exits (pass or fail).
+  # VITE_ENV is a marker env var for tooling; vite itself selects its env file
+  # via the --mode flag (vitest runs with mode "test" by default).
+  # app/.env.dev is required for this service too (see frontend_dev above).
+  test:
+    container_name: amazezoneapi-vitest
+    image: amazezoneapi_vite_frontend:local-dev
+    <<: *vite_base
+    restart: "no"
+    environment:
+      VITE_ENV: test
+    env_file:
+      - path: ../app/.env.dev
+        required: true
+    volumes:
+      - ../app:/app
+      - node_modules:/app/node_modules
+    command: ["npm", "run", "test:dev"]
+    profiles:
+      - test
+
+networks:
+  public:
+
+volumes:
+  node_modules:

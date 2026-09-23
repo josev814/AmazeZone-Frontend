@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { axiosClient, axiosClientWithAuth } from '../utils/AxiosClient';
 
 interface User {
 	id: number;
@@ -23,7 +23,7 @@ interface ApiResponse {
 }
 
 interface Props {
-	handleLogin: (data: { user: User; auth_token: string }) => void;
+	handleLogin: (user: User) => void;
 }
 
 const Login: React.FC<Props> = ({ handleLogin }) => {
@@ -90,17 +90,24 @@ const Login: React.FC<Props> = ({ handleLogin }) => {
 			password: password,
 		};
 
-		axios
-			.post(
-				'http://localhost:3000/auth/login',
-				{ ...user },
-				{ withCredentials: true }
-			)
-			.then((response) => {
+		axiosClient
+			.post('/auth/login', { ...user })
+			.then(async (response) => {
 				const responseData: ApiResponse = response.data;
 				if (responseData.auth_token) {
-					handleLogin(responseData);
-					redirect();
+					// Store the token, then fetch the current user with it.
+					localStorage.setItem('auth_token', responseData.auth_token);
+					try {
+						const currentUserResponse = await axiosClientWithAuth.get<User>('/auth/current');
+						handleLogin(currentUserResponse.data);
+						redirect();
+					} catch (error) {
+						console.log('api errors:', error);
+						setState((prevState) => ({
+							...prevState,
+							errors: ['Logged in, but could not load your account details. Please try again.'],
+						}));
+					}
 				} else {
 					setState({
 						...state,

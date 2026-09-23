@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
+import { axiosClientWithAuth } from '../utils/AxiosClient';
 
 interface Product {
 	id: number;
@@ -16,16 +16,7 @@ const ProductDetail: React.FC = () => {
 
 	useEffect(() => {
 		async function fetchData() {
-			const response = await axios.get(
-				`http://localhost:3000/products/${id}`,
-				{
-					headers: {
-						Authorization: localStorage.getItem('auth_token'),
-						Accept: 'application/json',
-						'Content-Type': 'application/json',
-					},
-				}
-			);
+			const response = await axiosClientWithAuth.get(`/products/${id}`);
 			setProduct(response.data);
 		}
 

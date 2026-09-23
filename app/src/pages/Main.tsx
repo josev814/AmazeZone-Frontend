@@ -25,8 +25,7 @@ const Main: React.FC<Props> = ({ user = {} }) => {
 
 	const headingStyle: React.CSSProperties = {
 		fontSize: '36px',
-		marginBottom: '20px',
-		color: '#FFF',
+		marginBottom: '20px'
 	};
 
 	const linkStyle = {
@@ -38,6 +37,8 @@ const Main: React.FC<Props> = ({ user = {} }) => {
 		color: 'white',
 		borderRadius: '4px',
 	};
+
+	console.log('User object in Main component:', user); // Log the user object to the console
 
 	return (
 		<div style={containerStyle}>

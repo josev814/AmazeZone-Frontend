@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { useNavigate, useParams } from 'react-router-dom';
+import { axiosClientWithAuth } from '../utils/AxiosClient';
 
 const ProductForm: React.FC = () => {
 	const { id } = useParams();
@@ -15,16 +15,7 @@ const ProductForm: React.FC = () => {
 
 	useEffect(() => {
 		async function fetchProductData() {
-			const response = await axios.get(
-				`http://localhost:3000/products/${id}`,
-				{
-					headers: {
-						Authorization: localStorage.getItem('auth_token'),
-						Accept: 'application/json',
-						'Content-Type': 'application/json',
-					},
-				}
-			);
+			const response = await axiosClientWithAuth.get(`/products/${id}`);
 			setProduct(response.data);
 		}
 		if (id) {
@@ -41,22 +32,10 @@ const ProductForm: React.FC = () => {
 		e.preventDefault();
 		if (id) {
 			// Update existing product
-			await axios.put(`http://localhost:3000/products/${id}`, product, {
-				headers: {
-					Authorization: localStorage.getItem('auth_token'),
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-				},
-			});
+			await axiosClientWithAuth.put(`/products/${id}`, product);
 		} else {
 			// Create a new product
-			await axios.post('http://localhost:3000/products', product, {
-				headers: {
-					Authorization: localStorage.getItem('auth_token'),
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-				},
-			});
+			await axiosClientWithAuth.post('/products', product);
 		}
 		// Redirect to product list page or do something else after submission
 		navigate('/products');

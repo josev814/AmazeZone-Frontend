@@ -1,6 +1,6 @@
 import React from 'react';
-import axios from 'axios';
 import { useParams, useNavigate } from 'react-router-dom';
+import { axiosClientWithAuth } from '../utils/AxiosClient';
 
 const ProductDelete: React.FC = () => {
 	const { id } = useParams();
@@ -31,13 +31,7 @@ const ProductDelete: React.FC = () => {
 
 	const handleDelete = async () => {
 		if (window.confirm('Are you sure you want to delete this product?')) {
-			await axios.delete(`http://localhost:3000/products/${id}`, {
-				headers: {
-					Authorization: localStorage.getItem('auth_token'),
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-				},
-			});
+			await axiosClientWithAuth.delete(`/products/${id}`);
 			navigate('/products');
 		}
 	};

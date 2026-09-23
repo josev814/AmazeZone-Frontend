@@ -1,22 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
 import { Link } from 'react-router-dom';
+import { axiosClientWithAuth } from '../utils/AxiosClient';
 
 const ProductList: React.FC = () => {
 	const [products, setProducts] = useState([]);
 
 	useEffect(() => {
 		async function fetchData() {
-			const response = await axios.get('http://localhost:3000/products', {
-				headers: {
-					Authorization: localStorage.getItem('auth_token'),
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-				},
-			}); // Adjust the API endpoint as needed
+			// Adjust the API endpoint as needed
+			const response = await axiosClientWithAuth.get('/products');
 			setProducts(response.data);
 		}
-
 		fetchData();
 	}, []);
 

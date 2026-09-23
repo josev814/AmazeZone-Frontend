@@ -23,11 +23,17 @@ const App: React.FC = () => {
 	const [user, setUser] = useState<User>({});
 	const [signupSuccess, setSignupSuccess] = useState<boolean>(false);
 
-	const handleLogin = (data: { auth_token: string }) => {
+	const handleLogin = (user: User) => {
 		setIsLoggedIn(true);
-		setUser(data.user);
-		// Store the auth_token in local storage
-		localStorage.setItem('auth_token', data.auth_token);
+		setUser(user);
+		// The auth token is stored in localStorage by the Login page.
+	};
+
+	const handleSignupSuccess = (user: User) => {
+		setSignupSuccess(true);
+		setIsLoggedIn(true);
+		setUser(user);
+		// The auth token is stored in localStorage by the Signup page.
 	};
 
 	const handleLogout = () => {
@@ -51,7 +57,7 @@ const App: React.FC = () => {
 					/>
 					<Route
 						path='/signup'
-						element={<Signup setSignupSuccess={setSignupSuccess} />}
+						element={<Signup onSignupSuccess={handleSignupSuccess} />}
 					/>
 					<Route path='/products' element={<PrivateRoute />}>
 						<Route path='' element={<ProductList />} />

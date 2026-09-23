@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { axiosClient, axiosClientWithAuth } from '../utils/AxiosClient';
+
+interface User {
+	id?: number;
+	name?: string;
+	email_address?: string;
+	phone_number?: string;
+}
 
 interface SignupState {
 	username: string;
@@ -10,16 +17,21 @@ interface SignupState {
 	errors: string[];
 }
 
-interface ApiResponse {
-	message: string;
-	errors: string[];
+interface SignupResponse {
+	message?: string;
+	errors?: string[];
+}
+
+interface LoginResponse {
+	auth_token?: string;
+	error?: string;
 }
 
 interface Props {
-	setSignupSuccess: (value: boolean) => void;
+	onSignupSuccess: (user: User) => void;
 }
 
-const Signup: React.FC<Props> = ({ setSignupSuccess }) => {
+const Signup: React.FC<Props> = ({ onSignupSuccess }) => {
 	const navigate = useNavigate();
 	const [state, setState] = useState<SignupState>({
 		username: '',
@@ -86,30 +98,55 @@ const Signup: React.FC<Props> = ({ setSignupSuccess }) => {
 			password_confirmation: password_confirmation,
 		};
 
-		axios
-			.post(
-				'http://localhost:3000/signup',
-				{ user },
-				{ withCredentials: true }
-			)
-			.then((response) => {
-				const responseData: ApiResponse = response.data;
-				console.log(responseData);
-				if (responseData.message) {
-					setSignupSuccess(true);
-					redirect();
+		// 1) Create the account. The backend responds with { message } on
+		//    success and does NOT issue a token here, so a 2xx without errors
+		//    means the signup worked.
+		axiosClient
+			.post('/signup', { user })
+			.then(async (response) => {
+				const signupData: SignupResponse = response.data;
+				console.log(signupData);
+				if (response.status >= 200 && response.status < 300 && !signupData.errors?.length) {
+					await completeSignup(email, password);
 				} else {
-					setState({
-						...state,
-						errors: responseData.errors,
-					});
+					setState((prevState) => ({
+						...prevState,
+						errors: signupData.errors ?? ['Could not create the account. Please try again.'],
+					}));
 				}
 			})
 			.catch((error) => console.log('api errors:', error));
 	};
 
+	// 2) Obtain an auth token (the backend only issues one on login) and use it
+	//    to load the newly created user.
+	const completeSignup = async (emailAddress: string, userPassword: string) => {
+		try {
+			const loginResponse = await axiosClient.post<LoginResponse>('/auth/login', {
+				email_address: emailAddress,
+				password: userPassword,
+			});
+			if (!loginResponse.data.auth_token) {
+				throw new Error('login response did not include an auth_token');
+			}
+			localStorage.setItem('auth_token', loginResponse.data.auth_token);
+
+			const currentUserResponse = await axiosClientWithAuth.get<User>('/auth/current');
+			onSignupSuccess(currentUserResponse.data);
+			redirect();
+		} catch (error) {
+			console.log('api errors:', error);
+			// The account was created; if the auto sign-in step failed the user
+			// can simply log in manually with the same credentials.
+			setState((prevState) => ({
+				...prevState,
+				errors: ['Account created, but automatic sign-in failed. Please log in manually.'],
+			}));
+		}
+	};
+
 	const redirect = () => {
-		navigate('/');
+		navigate('/home');
 	};
 
 	const handleErrors = () => {
